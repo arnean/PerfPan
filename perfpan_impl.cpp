@@ -23,6 +23,7 @@
 #include "math.h"
 #include <stdio.h>
 #include <stdint.h>
+#include <unordered_map>
 
 #include "info.h"
 #include "perfpan_impl.h"
@@ -43,6 +44,7 @@ class algo {
     float blank_threshold;
     IScriptEnvironment* env;
     int debug;
+    std::unordered_map<int, float> scorecache;
 
     //bool isblank(const BYTE* frame, int x, int y);
     void compare_frame(int x, int y);
@@ -61,7 +63,7 @@ public:
 algo::algo(const BYTE* _reference, const BYTE* _current, int _pitch, int _rowsize, int _height, 
     float _blank_threshold, int _debug, IScriptEnvironment* _env) :
     reference(_reference), current(_current), pitch(_pitch), rowsize(_rowsize), height(_height),
-    best_x(0), best_y(0), best_match(1), blank_threshold(_blank_threshold), debug(_debug), env(_env)
+    best_x(0), best_y(0), best_match(0), blank_threshold(_blank_threshold), debug(_debug), env(_env)
 {
     min_x = -rowsize / 4;
     min_y = -height / 4;
@@ -105,9 +107,12 @@ bool algo::isblank(const BYTE* frame, int x, int y)
 }
 #endif
 
+#define N2
+
+#ifdef N1
 /*
 compares current frame to reference frame pixel by pixel by xor-ing them. white means that pixels differ
-returns the ratio of white pixels to total pixels
+updates best match data if best match found
 current frame is shifted by x and y before the comparison
 */
 void algo::compare_frame(int x, int y)
@@ -118,16 +123,16 @@ void algo::compare_frame(int x, int y)
     int reference_blacks = 0;
     int reference_whites = 0;
     int total = 0;
-    int max_height = height - abs(y);
-    int max_width = rowsize - abs(x);
     const BYTE* current_ptr;
     const BYTE* reference_ptr;
 
-    if (x > min_x && x < max_x && y > min_y && y < max_y) {
-        for (int cy = 0; cy < max_height; cy++) {
-            current_ptr = current + (cy + (y > 0 ? 0 : -y)) * pitch + (x > 0 ? 0 : -x);
-            reference_ptr = reference + (cy + (y > 0 ? y : 0)) * pitch + (x > 0 ? x : 0);
-            for (int cx = 0; cx < max_width; cx++) {
+    if (x >= min_x && x <= max_x && y >= min_y && y <= max_y) {
+        for (int cy = min_y; cy < max_y; cy++) {
+            current_ptr = current + (cy + height/2 + y) * pitch + rowsize/4 + x;
+            reference_ptr = reference + (cy + height/2) * pitch + rowsize/4;
+            // current_ptr = current + (cy + height / 2 + (y > 0 ? 0 : -y) * pitch + rowsize / 4 + (x > 0 ? 0 : -x);
+            // reference_ptr = reference + (cy + height / 2 + (y > 0 ? y : 0)) * pitch + rowsize / 4 + (x > 0 ? x : 0);
+            for (int cx = min_x; cx < max_x; cx++) {
                 BYTE current_pixel = *(current_ptr++);
                 BYTE reference_pixel = *(reference_ptr++);
 
@@ -169,6 +174,71 @@ void algo::compare_frame(int x, int y)
         }
     }
 }
+#endif
+
+#ifdef N2
+/*
+compares current frame to reference frame pixel by pixel by xor-ing them. white means that pixels differ
+updates best match data if best match found
+current frame is shifted by x and y before the comparison
+*/
+void algo::compare_frame(int x, int y)
+{
+    int score = 0;
+    int current_blacks = 0;
+    int current_whites = 0;
+    int reference_blacks = 0;
+    int reference_whites = 0;
+    int total = 0;
+    int max_height = height - abs(y);
+    int max_width = rowsize - abs(x);
+    const BYTE* current_ptr;
+    const BYTE* reference_ptr;
+
+    if (x > min_x && x < max_x && y > min_y && y < max_y) {
+        int cachekey = y * rowsize + x;
+        float match = 0;
+        if (scorecache.find(cachekey) == scorecache.end()) {
+            for (int cy = 0; cy < max_height; cy++) {
+                current_ptr = current + (cy + (y > 0 ? 0 : -y)) * pitch + (x > 0 ? 0 : -x);
+                reference_ptr = reference + (cy + (y > 0 ? y : 0)) * pitch + (x > 0 ? x : 0);
+                for (int cx = 0; cx < max_width; cx++) {
+                    BYTE current_pixel = *(current_ptr++);
+                    BYTE reference_pixel = *(reference_ptr++);
+
+                    current_blacks += (current_pixel == 0);
+                    current_whites += (current_pixel == 255);
+                    reference_blacks += (reference_pixel == 0);
+                    reference_whites += (reference_pixel == 255);
+
+                    if ((current_pixel != 0 && current_pixel != 255)
+                        || (reference_pixel != 0 && reference_pixel != 255)) {
+                        env->ThrowError("PerfPan: clip must be black and white. Use ConvrtToY8().Levels(160,1,161,0,255,true)");
+                    }
+                    score += (reference_pixel == 255 && current_pixel == 255) * 10
+                        - (reference_pixel == 255 && current_pixel == 0) * 10
+                        + (reference_pixel == 0 && current_pixel == 0)
+                        - (reference_pixel == 0 && current_pixel == 255);
+                    total++;
+                }
+            }
+
+            int threshold = total * blank_threshold;
+
+            if (current_blacks > threshold && current_whites > threshold
+                && reference_blacks > threshold && reference_whites > threshold) {
+                match = (float)score / total;
+                if (match > best_match) {
+                    best_x = x;
+                    best_y = y;
+                    best_match = match;
+                }
+            }
+            scorecache[cachekey] = match;
+        }
+    }
+}
+#endif
 
 #if 0
 /*
@@ -202,65 +272,61 @@ void algo::shift_and_process_frame(int x, int y) {
 }
 #endif
 
-#if 0
+#define M3
+
+#ifdef M1
 /*
 shifts current frame in spiral motion and compares with reference frame to find best match
 shifts are done half frame up and down and half frame left and right
 */
 void algo::calculate_shifts() {
-    int x = 0;
-    int y = 0;
-    int covered_min_x = 0;
-    int covered_min_y = 0;
-    int covered_max_x = 0;
-    int covered_max_y = 0;
-
-    compare_frame(x, y);
-    bool worked = true;
-    while (worked) {
-        worked = false;
-        // move right
-        while (x < covered_max_x + 1) {
-            if (y < max_y) {
-                compare_frame(x, y);
-                worked = true;
-            }
-            x++;
+    for (int x = min_x; x < max_x; x++) {
+        for (int y = min_y; y < max_y; y++) {
+            compare_frame(x, y);
         }
-        covered_max_x = x;
-        // move down
-        while (y > covered_min_y - 1) {
-            if (x < max_x) {
-                compare_frame(x, y);
-                worked = true;
-            }
-            y--;
-        }
-        covered_min_y = y;
-        // move left
-        while (x > covered_min_x - 1) {
-            if (y > min_y) {
-                compare_frame(x, y);
-                worked = true;
-            }
-            x--;
-        }
-        covered_min_x = x;
-        // move up
-        while (y < covered_max_y + 1) {
-            if (x > min_x) {
-                compare_frame(x, y);
-                worked = true;
-            }
-            y++;
-        }
-        covered_max_y = y;
     }
 }
-#else
+#endif
 
+#ifdef M2
 /*
 shifts current frame to the direction where the match is best 
+repeats until there is not better match around
+shifts are done half frame up and down and half frame left and right
+*/
+void algo::calculate_shifts() {
+    int x = 0;
+    int y = 0;
+    int x_amp = rowsize / 8;
+    int y_amp = height / 8;
+
+    compare_frame(x, y);
+    do {
+        x = best_x;
+        y = best_y;
+        compare_frame(x + x_amp, y);
+        compare_frame(x + x_amp, y + y_amp);
+        compare_frame(x + x_amp, y - y_amp);
+        compare_frame(x - x_amp, y);
+        compare_frame(x - x_amp, y + y_amp);
+        compare_frame(x - x_amp, y - y_amp);
+        compare_frame(x, y + y_amp);
+        compare_frame(x, y - y_amp);
+        x_amp = x_amp * 2 / 3;
+        y_amp = y_amp * 2 / 3;
+        if (x_amp == 0) {
+            x_amp = 1;
+        }
+        if (y_amp == 0) {
+            y_amp = 1;
+        }
+    } while (x != best_x || y != best_y);
+}
+#endif
+
+#ifdef M3
+/*
+shifts current frame to the direction where the match is best
 repeats until there is not better match around
 shifts are done half frame up and down and half frame left and right
 */
