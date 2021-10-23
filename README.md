@@ -27,7 +27,7 @@ Make the clip black-and-white using Levels plugin. Select threshold that will le
 film area black - the less white you have in the frame, the better and faster the plugin works. In the example below I've selected 150/151 as 
 a threshold for black and white.
 
-![Prepared perforation clip](https://github.com/arnean/PerfPan/blob/master/images/perforation.jpg)
+![Prepared perforation clip](https://github.com/arnean/PerfPan/blob/master/images/perforation.png)
 
 Finally turn the clip into Y8 format - this is the required format for the perforation clip.
 
@@ -61,6 +61,36 @@ Useful for debugging.
 * **plot_scores** - this is something that I used to debug the scoring and searching algorithms. See below for explanation.
 
 ```
-source_clip.PerfPan(perforation=stabsource2,blank_threshold=0.01,reference_frame=461,max_search=10,log="perfpan.log",plot_scores=false)
+source_clip.PerfPan(perforation=stabsource2,blank_threshold=0.01,reference_frame=461,
+max_search=10,log="perfpan.log",plot_scores=false)
 ```
+
+##How it works##
+
+There are three parts:
+
+* scoring algorithm for comparing the frames
+* searching alorithm for finding the highest score by shifting the current frame relative to reference frame
+* code for doing the actual panning of the original frame
+
+###Scoring algorithm###
+
+My initial idea was to just XOR the frames and count the number of white pixels (white pixels on the XOR-ed image are the ones that
+are different on frames) and use this number as a negative score (lower is better). 
+
+Later I changed the scoring algorithm to value the match in the sprocket hole area more than the match in the 
+rest of the image. Match in the perforation area is 20 times more important than the match in the rest of the frame. This coefficient was 
+found using trial and errrors process. It is likely that for some other clips different value is needed. Right now it is hardcoded.
+
+Recall that the ideal reference frame is completely black, with just the sprocket hole being white. So when both frames have white pixel in same location - it is 20 points. If reference frame has white pixel and current frame has black pixel - it is minus 20 points - there is a black pixel in the sprocket area, frame is shifted too far. If both pixels are black (film area) - it is 1 point. If reference frame has black pixel and current frame has white pixel - it is minus 1 point.
+
+When you shift the frames relative to each other and calculate the scores there is a specific problem, because the bigger the shift, the smaller the comparison area. When you shift the frame to align the sprocket holes, you will reduce the differences in one area of the image - the score improves. But you might at the same time shift out some "good" pixels in other area - this will reduce the score. It is possible that those changes cancel out each other and the total score does not improve - the scoring algorithm does not find an optimal solution.
+
+In order to study how the scoring algorithm works you can plot out the scores. Set the **plot_scores** parameter to true and **max_search** parameter to -1. PerfPan will do an exahaustive search for the best score on each frame - it means that it will shift the current frame relative to the reference frame to all possible positions and calculate score for each of those positions. The results will be written to file frame%d.plt - where %d is the number of the frame. The file is 
+**gnuplot** script. If you have gnuplot installed double click on the file and you will see similar image:
+
+![Score heatmap](https://github.com/arnean/PerfPan/blob/master/images/heatmap.png)
+
+Bright yellow is the best score. X and Y coordinates of the brightest yellow pixel determine the amount of panning needed to achieve best match with the 
+reference frame. Fortunately the scoring algorithm was quite good (at least for this single clip that I've used so far) and is almost monotonically growing - i.e. there is just one peak in this "map". This means that I can use simple gradiant search that is quite efficient. In practice I found out that there is usually small "plateau" were score values are slightly fluctuating and I had to modify the search algorithm to accomodate this.
 
