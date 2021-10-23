@@ -13,12 +13,6 @@
 	along with this program; if not, write to the Free Software
 	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
-	uses FFTW library (http://www.fftw.org)
-	as Windows binary DLL compiled with gcc under MinGW by Alessio Massaro,
-	which support for threads and have AMD K7 (3dNow!) in addition to SSE/SSE2.
-	ftp://ftp.fftw.org/pub/fftw/fftw3win32mingw.zip
-
-
 */
 #ifndef __PERFPAN_IMPL_H__
 #define __PERFPAN_IMPL_H__
