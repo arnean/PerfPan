@@ -47,13 +47,18 @@ align the sprocket holes. Borders will be filled with green color to show the am
 
 There are some parameters that you need to set:
 
-* perforation - this is mandatory parameters for perforation clip
-* blank_threshold - no need to change the default value 0.01. This parameter affects the comparison of the frames. When the frames are shifted relative to 
+* **perforation** - this is mandatory parameters for perforation clip
+* **blank_threshold** - no need to change the default value 0.01. This parameter affects the comparison of the frames. When the frames are shifted relative to 
 each other their intersection becomes smaller. It is possible that one of the frames will be completely white or black - in this case it is not 
 possible to compare the frames with each other because one of the frames does not have any features left. This parameter determines the minimum 
 number of differently colored pixels that are needed for comparison. It must be between 0 and 1. Default is 1%.
+* **reference_frame** - set it to the number of the frame that you want to use as a reference
+* **max_search** - this parameters determines how widely the algorithm looks for the best match. If set to -1 PefPan performs exhausitve search, which is very, very slow. Only needed for debugging the filter. See below for detailed explanation what this parameter does.
+* **log** - name of the logfile. If set PerfPan will write a file with frame numbers, x and y shifts and best score of the frame. 
+Mostly useful for debugging
+* **plot_scores** - this is something that I used to debug the scoring and searching algorithms. See belove for explanation.
 
-
-#stabbed=stabsource3.PerfPan(perforation=stabsource2,blank_threshold=0.01,reference_frame=461,max_search=10,log="c:\users\arne\perfpan.log",plot_scores=false)
-
+```
+source_clip.PerfPan(perforation=stabsource2,blank_threshold=0.01,reference_frame=461,max_search=10,log="perfpan.log",plot_scores=false)
+```
 
