@@ -2,8 +2,10 @@
 PerfPan is an Avisynth plugin to stabilize scanned film using perforation as a reference.
 
 It't goal is to remove the bouncing of the frames that is caused by the damaged sprocket holes 
-of the film or by the scanning machines that do not have a good film transport. Perfect
-input to PerfPan is a sequence of images scanned using Wolverine/Hawkeye scanner. 
+of the film or by the scanning machines that do not have a good film transport. PerfPan will stabilize the film **globally** - all frames will be aligned with the single reference frame. This is very different from other stabilizers that will stabilize locally, relative to surrounding frames. Globally stabilized clip can be
+cropped with minimal waste - you will retain maximum image area with exposing borders in any frames.
+
+Perfect input to PerfPan is a sequence of images scanned using Wolverine/Hawkeye scanner. 
 
 ```
 source_clip=ImageReader("scanned_images%06d.jpg", start=1, end=7046, fps=16)
@@ -71,6 +73,13 @@ source_clip.PerfPan(perforation=stabsource2,blank_threshold=0.01,reference_frame
 max_search=10,log="perfpan.log",plot_scores=false)
 ```
 
+[Here is a small clip](https://home.cyber.ee/arne/perfpan-demo.mp4) that shows the results of the stabilization of the perforation clip itself. 
+On the left side is frame on top of reference frame. On the right side is panned frame on top of reference frame.
+
+[Here is a longer clip](https://home.cyber.ee/arne/perfpan-demo.mp4) that shows uncropped result of the stabilization. It is interesting to not that 
+while sprocket holes are quite stable the frames themselves tend to move relative to sprocket holes little bit. Notice how big are shifts in some areas
+of the clip.
+
 ## How it works
 
 There are three parts:
@@ -112,4 +121,4 @@ If **max_search** is not -1 and **plot_scores** is true then another frame speci
 
 ### Panning algorithm
 
-I took the Avisynth core AddBoders filter and modified it to do panning - i.e. on one side it will add borders but on the other side it will crop to keep the image size. It will work with all image formats and should be quite effective.
+I took the Avisynth core AddBoders filter and modified it to do panning - i.e. on one side it will add borders but on the other side it will crop to keep the image size. It will work with all image formats and should be quite effective. Just one remark: if the original clip is in YV12 colourspace then it is possible to pan only in steps of two pixels. The plugin will automatically do it, but the result is not as good as with other formats.
