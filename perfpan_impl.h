@@ -32,16 +32,16 @@ class PerfPan_impl : public GenericVideoFilter {
 	bool has_at_least_v8;
 	double blank_threshold;
 	int reference_frame;
-	int info;
+	int max_search;
+	bool plot_scores;
 	const char *logfilename;
-	int debug;       // debug mode, output data for debugview utility
 	PClip perforation;
 
 	FILE *logfile;
 
 public:
-	PerfPan_impl(PClip _child, PClip _perforation, float _blank_threshold, int _reference_frame, int _info, 
-		const char* _logfilename, int _debug, IScriptEnvironment* env);
+	PerfPan_impl(PClip _child, PClip _perforation, float _blank_threshold, int _reference_frame, int _max_search, 
+		const char* _logfilename, bool _plot_scores, IScriptEnvironment* env);
 	~PerfPan_impl();
 
 	PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env);

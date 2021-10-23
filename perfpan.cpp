@@ -26,9 +26,9 @@ AVSValue __cdecl Create_PerfPan(AVSValue args, void* user_data, IScriptEnvironme
     args[1].AsClip(), // perforation clip
     (float)args[2].AsFloat(0.01),		//  parameter - blank_threshold.
     args[3].AsInt(0),	//  parameter - reference_frame.
-    args[4].AsBool(false),//  parameter - info.
+    args[4].AsInt(3),//  parameter - max_search.
     args[5].AsString(""),	//  parameter - log.
-    args[6].AsBool(false),	//  parameter - debug.
+    args[6].AsBool(false),	//  parameter - plot_scores.
     env);
 }
 
@@ -49,7 +49,7 @@ AvisynthPluginInit3(IScriptEnvironment* env, const AVS_Linkage* const vectors) {
   // Save the server pointers.
   AVS_linkage = vectors;
 
-  env->AddFunction("PerfPan", "c[perforation]c[blank_threshold]f[reference_frame]i[info]b[log]s[debug]b", Create_PerfPan, 0);
+  env->AddFunction("PerfPan", "c[perforation]c[blank_threshold]f[reference_frame]i[max_search]i[log]s[plot_scores]b", Create_PerfPan, 0);
 
   return "`PerfPan' PerfPan plugin";
 }

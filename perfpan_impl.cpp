@@ -25,7 +25,6 @@
 #include <stdint.h>
 #include <unordered_map>
 
-#include "info.h"
 #include "perfpan_impl.h"
 
 class algo {
@@ -43,16 +42,20 @@ class algo {
     float best_match;
     float blank_threshold;
     IScriptEnvironment* env;
-    int debug;
     std::unordered_map<int, float> scorecache;
+    int frame;
+    bool plot_scores;
+    FILE* plotfile;
+    int max_search;
 
-    //bool isblank(const BYTE* frame, int x, int y);
-    void compare_frame(int x, int y);
-    //void shift_and_process_frame(int x, int y);
+    float compare_frame(int x, int y);
+    void calculate_shifts_exhaustive(void);
+    void calculate_shifts_gradient(void);
 
 public:
-    algo(const BYTE* _reference, const BYTE* _current, int pitch, int rowsize, int height, float blank_threshold,
-        int debug, IScriptEnvironment* env);
+    algo(const BYTE* reference, const BYTE* current, int pitch, int rowsize, int height, float blank_threshold, int max_search,
+        int frame, bool plot_scores, IScriptEnvironment* env);
+    ~algo();
 
     void calculate_shifts(void);
     int get_best_x(void) { return best_x; };
@@ -61,128 +64,40 @@ public:
 };
 
 algo::algo(const BYTE* _reference, const BYTE* _current, int _pitch, int _rowsize, int _height, 
-    float _blank_threshold, int _debug, IScriptEnvironment* _env) :
+    float _blank_threshold, int _max_search, int _frame, bool _plot_scores, IScriptEnvironment* _env) :
     reference(_reference), current(_current), pitch(_pitch), rowsize(_rowsize), height(_height),
-    best_x(0), best_y(0), best_match(0), blank_threshold(_blank_threshold), debug(_debug), env(_env)
+    best_x(0), best_y(0), best_match(-100), blank_threshold(_blank_threshold), max_search(_max_search), 
+    frame(_frame), plot_scores(_plot_scores), env(_env)
 {
     min_x = -rowsize / 4;
     min_y = -height / 4;
     max_x = rowsize / 4;
     max_y = height / 4;
-}
-
-#if 0
-/*
-blank means frame is completely black or white. blank_threshold allows some error
-x & y are shifts of frame - how many pixels are not checked.
-when x is positive then pixels at the end of line are not checked
-when x is negative then pixels at the beginning of line are not checked
-when y is positive then lines at the end of frame are not checked
-when y is negative then lines at the beginning of frame are not checked
-if there is pixel that is 0 or 255 then processing is aborted
-*/
-bool algo::isblank(const BYTE* frame, int x, int y)
-{
-    int blacks = 0;
-    int whites = 0;
-
-    for (int cy = y < 0 ? -y : 0; cy < height - (y > 0 ? y : 0); cy++) {
-        for (int cx = x < 0 ? -x : 0; cx < rowsize - (x > 0 ? x : 0); cx++) {
-            BYTE pixel = *(frame + cy * pitch + cx);
-
-            if (pixel == 0) {
-                blacks++;
-            }
-            else if (pixel == 255) {
-                whites++;
-            }
-            else {
-                env->ThrowError("PerfPan: clip must be black and white. Use ConvrtToY8().Levels(160,1,161,0,255)");
-            }
+    if (plot_scores) {
+        char plotfilename[100];
+        sprintf(plotfilename, "frame%d.%s", frame, (max_search == -1 ? "plt" : "txt"));
+        plotfile = fopen(plotfilename, "wt");
+        if (plotfile == NULL) {
+            env->ThrowError("PerfPan: plotfile can not be created");
         }
     }
-
-    return ((float)blacks / (blacks + whites) < blank_threshold 
-        && (float)whites / (blacks + whites) < blank_threshold);
+    else {
+        plotfile = NULL;
+    }
 }
-#endif
 
-#define N2
+algo::~algo() {
+    if (plotfile != NULL) {
+        fclose(plotfile);
+    }
+}
 
-#ifdef N1
 /*
-compares current frame to reference frame pixel by pixel by xor-ing them. white means that pixels differ
+compares current frame to reference frame pixel by pixel
 updates best match data if best match found
 current frame is shifted by x and y before the comparison
 */
-void algo::compare_frame(int x, int y)
-{
-    int mismatches = 0;
-    int current_blacks = 0;
-    int current_whites = 0;
-    int reference_blacks = 0;
-    int reference_whites = 0;
-    int total = 0;
-    const BYTE* current_ptr;
-    const BYTE* reference_ptr;
-
-    if (x >= min_x && x <= max_x && y >= min_y && y <= max_y) {
-        for (int cy = min_y; cy < max_y; cy++) {
-            current_ptr = current + (cy + height/2 + y) * pitch + rowsize/4 + x;
-            reference_ptr = reference + (cy + height/2) * pitch + rowsize/4;
-            // current_ptr = current + (cy + height / 2 + (y > 0 ? 0 : -y) * pitch + rowsize / 4 + (x > 0 ? 0 : -x);
-            // reference_ptr = reference + (cy + height / 2 + (y > 0 ? y : 0)) * pitch + rowsize / 4 + (x > 0 ? x : 0);
-            for (int cx = min_x; cx < max_x; cx++) {
-                BYTE current_pixel = *(current_ptr++);
-                BYTE reference_pixel = *(reference_ptr++);
-
-                if (current_pixel == 0) {
-                    current_blacks++;
-                }
-                else if (current_pixel == 255) {
-                    current_whites++;
-                }
-                else {
-                    env->ThrowError("PerfPan: clip must be black and white. Use ConvrtToY8().Levels(160,1,161,0,255,true)");
-                }
-                if (reference_pixel == 0) {
-                    reference_blacks++;
-                }
-                else if (reference_pixel == 255) {
-                    reference_whites++;
-                }
-                else {
-                    env->ThrowError("PerfPan: clip must be black and white. Use ConvrtToY8().Levels(160,1,161,0,255,true)");
-                }
-                if ((current_pixel ^ reference_pixel) == 255) {
-                    mismatches++;
-                }
-                total++;
-            }
-        }
-
-        int threshold = total * blank_threshold;
-
-        if (current_blacks > threshold && current_whites > threshold
-            && reference_blacks > threshold && reference_whites > threshold) {
-            float match = (float)mismatches / total;
-            if (match < best_match) {
-                best_x = x;
-                best_y = y;
-                best_match = match;
-            }
-        }
-    }
-}
-#endif
-
-#ifdef N2
-/*
-compares current frame to reference frame pixel by pixel by xor-ing them. white means that pixels differ
-updates best match data if best match found
-current frame is shifted by x and y before the comparison
-*/
-void algo::compare_frame(int x, int y)
+float algo::compare_frame(int x, int y)
 {
     int score = 0;
     int current_blacks = 0;
@@ -194,10 +109,10 @@ void algo::compare_frame(int x, int y)
     int max_width = rowsize - abs(x);
     const BYTE* current_ptr;
     const BYTE* reference_ptr;
+    float match = -100;
 
     if (x > min_x && x < max_x && y > min_y && y < max_y) {
         int cachekey = y * rowsize + x;
-        float match = 0;
         if (scorecache.find(cachekey) == scorecache.end()) {
             for (int cy = 0; cy < max_height; cy++) {
                 current_ptr = current + (cy + (y > 0 ? 0 : -y)) * pitch + (x > 0 ? 0 : -x);
@@ -215,8 +130,9 @@ void algo::compare_frame(int x, int y)
                         || (reference_pixel != 0 && reference_pixel != 255)) {
                         env->ThrowError("PerfPan: clip must be black and white. Use ConvrtToY8().Levels(160,1,161,0,255,true)");
                     }
-                    score += (reference_pixel == 255 && current_pixel == 255) * 10
-                        - (reference_pixel == 255 && current_pixel == 0) * 10
+                    // see the documentation for scoring logic and for those magical constants
+                    score += (reference_pixel == 255 && current_pixel == 255) * 20
+                        - (reference_pixel == 255 && current_pixel == 0) * 20
                         + (reference_pixel == 0 && current_pixel == 0)
                         - (reference_pixel == 0 && current_pixel == 255);
                     total++;
@@ -225,6 +141,8 @@ void algo::compare_frame(int x, int y)
 
             int threshold = total * blank_threshold;
 
+            // if either reference frame or current frame is blank - without any features that could
+            // be used for syncing then we are not going to calculate the match
             if (current_blacks > threshold && current_whites > threshold
                 && reference_blacks > threshold && reference_whites > threshold) {
                 match = (float)score / total;
@@ -237,123 +155,105 @@ void algo::compare_frame(int x, int y)
             scorecache[cachekey] = match;
         }
     }
+    return(match);
 }
-#endif
 
-#if 0
-/*
-shift current frame and compare it against reference frame
-*/
-void algo::shift_and_process_frame(int x, int y) {
-    if (x > min_x && x < max_x && y > min_y && y < max_y) {
-        bool reference_is_blank = isblank(reference, x, y);
-        bool current_is_blank = isblank(current, -x, -y);
-        bool was_best = false;
-        if (!reference_is_blank && !current_is_blank) {
-            float match = compare_frame(x, y);
-            if (match < best_match) {
-                best_x = x;
-                best_y = y;
-                best_match = match;
-                was_best = true;
-            }
-        }
-#ifdef _WIN32
-        if (debug != 0) {
-            char debugbuf[200]; // buffer for debugview utility
-
-            snprintf(debugbuf, sizeof(debugbuf),
-                "PerfPan: shift_and_process_frame(%d, %d), reference %d, current %d, was_best %d, best%f\n",
-                x, y, reference_is_blank, current_is_blank, was_best, best_match);
-            OutputDebugString(debugbuf);
-        }
-#endif
+void algo::calculate_shifts() {
+    if (max_search == -1) {
+        calculate_shifts_exhaustive();
+    }
+    else {
+        calculate_shifts_gradient();
     }
 }
-#endif
 
-#define M3
-
-#ifdef M1
 /*
 shifts current frame in spiral motion and compares with reference frame to find best match
 shifts are done half frame up and down and half frame left and right
 */
-void algo::calculate_shifts() {
+void algo::calculate_shifts_exhaustive() {
+    float min_match = 100;
+    float max_match = -100;
+    if (plotfile != NULL) {
+        fprintf(plotfile, "$map << EOD\n");
+    }
     for (int x = min_x; x < max_x; x++) {
         for (int y = min_y; y < max_y; y++) {
-            compare_frame(x, y);
+            float match = compare_frame(x, y);
+            if (match > max_match) {
+                max_match = match;
+            }
+            if (match != -100 && match < min_match) {
+                min_match = match;
+            }
+            if (plotfile != NULL) {
+                fprintf(plotfile, "%d\t%d\t%d\t%7.5f\n", frame, x, y, match);
+            }
+        }
+        if (plotfile != NULL) {
+            fprintf(plotfile, "\n");
         }
     }
+    if (plotfile != NULL) {
+        fprintf(plotfile, "EOD\n");
+        fprintf(plotfile, "set cbrange[%f:%f]\n", min_match, max_match);
+        fprintf(plotfile, "set view map\n");
+        fprintf(plotfile, "plot '$map' using 2:3:4 with image\n");
+    }
 }
-#endif
 
-#ifdef M2
 /*
 shifts current frame to the direction where the match is best 
 repeats until there is not better match around
 shifts are done half frame up and down and half frame left and right
 */
-void algo::calculate_shifts() {
+void algo::calculate_shifts_gradient() {
     int x = 0;
     int y = 0;
-    int x_amp = rowsize / 8;
-    int y_amp = height / 8;
+    int current_search = 1;
+    bool run = true;
 
-    compare_frame(x, y);
+    compare_frame(0, 0);
     do {
-        x = best_x;
-        y = best_y;
-        compare_frame(x + x_amp, y);
-        compare_frame(x + x_amp, y + y_amp);
-        compare_frame(x + x_amp, y - y_amp);
-        compare_frame(x - x_amp, y);
-        compare_frame(x - x_amp, y + y_amp);
-        compare_frame(x - x_amp, y - y_amp);
-        compare_frame(x, y + y_amp);
-        compare_frame(x, y - y_amp);
-        x_amp = x_amp * 2 / 3;
-        y_amp = y_amp * 2 / 3;
-        if (x_amp == 0) {
-            x_amp = 1;
+        // scan the square circle around x & y
+        // increase radius every time best_x & best_y do not improve
+        // stop after max search radius is achieved
+        for (int cx = -current_search; cx <= current_search; cx++) {
+            compare_frame(x + cx, y + current_search);
+            compare_frame(x + cx, y - current_search);
         }
-        if (y_amp == 0) {
-            y_amp = 1;
+        for (int cy = -(current_search-1); cy <= current_search - 1; cy++) {
+            compare_frame(x + current_search, y + cy);
+            compare_frame(x - current_search, y + cy);
         }
-    } while (x != best_x || y != best_y);
+        if (x != best_x || y != best_y) {
+            // better score found, reset radius
+            x = best_x;
+            y = best_y;
+            current_search = 1;
+            if (plotfile != NULL) {
+                fprintf(plotfile, "x,y = %d,%d\n", best_x, best_y);
+            }
+        }
+        else if (current_search < max_search) {
+            // no better score, look further
+            current_search++;
+            if (plotfile != NULL) {
+                fprintf(plotfile, "r = %d\n", current_search);
+            }
+        }
+        else {
+            // we are done
+            run = false;
+        }
+    } while (run);
 }
-#endif
 
-#ifdef M3
-/*
-shifts current frame to the direction where the match is best
-repeats until there is not better match around
-shifts are done half frame up and down and half frame left and right
-*/
-void algo::calculate_shifts() {
-    int x = 0;
-    int y = 0;
-
-    compare_frame(x, y);
-    do {
-        x = best_x;
-        y = best_y;
-        compare_frame(x + 1, y);
-        compare_frame(x + 1, y + 1);
-        compare_frame(x + 1, y - 1);
-        compare_frame(x - 1, y);
-        compare_frame(x - 1, y + 1);
-        compare_frame(x - 1, y - 1);
-        compare_frame(x, y + 1);
-        compare_frame(x, y - 1);
-    } while (x != best_x || y != best_y);
-}
-#endif
-
-PerfPan_impl::PerfPan_impl(PClip _child, PClip _perforation, float _blank_threshold, int _reference_frame, int _info, 
-    const char* _logfilename, int _debug, IScriptEnvironment* env) :
+PerfPan_impl::PerfPan_impl(PClip _child, PClip _perforation, float _blank_threshold, int _reference_frame, int _max_search, 
+    const char* _logfilename, bool _plot_scores, IScriptEnvironment* env) :
     GenericVideoFilter(_child), perforation(_perforation), blank_threshold(_blank_threshold), 
-    reference_frame(_reference_frame), info(_info), logfilename(_logfilename), debug(_debug)
+    reference_frame(_reference_frame), logfilename(_logfilename), max_search(_max_search),
+    plot_scores(_plot_scores)
 {
     has_at_least_v8 = true;
     try { env->CheckVersion(8); }
@@ -375,44 +275,6 @@ PerfPan_impl::~PerfPan_impl() {
         fclose(logfile);
     }
 }
-
-#if 0
-PVideoFrame __stdcall PerfPan_impl::GetFrame(int ndest, IScriptEnvironment* env) {
-    PVideoFrame current = perforation->GetFrame(ndest, env);
-    PVideoFrame reference = perforation->GetFrame(reference_frame, env);
-
-    algo algo(reference->GetReadPtr(), current->GetReadPtr(), reference->GetPitch(), 
-        reference->GetRowSize(), reference->GetHeight(), blank_threshold, debug, env);
-    algo.calculate_shifts();
-
-    if (info) { // show text info on frame
-        char messagebuf[64];
-        int xmsg = dst_rowsize / 4 - 8; 
-        int ymsg = dst_height / 40 - 4;
-
-        env->BitBlt(dstp, dst_pitch, srcp, src_pitch, dst_rowsize, dst_height);
-        /*
-        snprintf(messagebuf, sizeof(messagebuf), " PerfPan");
-        DrawString(dst, vi, xmsg, ymsg, messagebuf);
-        snprintf(messagebuf, sizeof(messagebuf), " frame=%7d", ndest);
-        DrawString(dst, vi, xmsg, ymsg + 1, messagebuf);
-        snprintf(messagebuf, sizeof(messagebuf), " dx   =%7.2f", (float)algo.get_best_x());
-        DrawString(dst, vi, xmsg, ymsg + 2, messagebuf);
-        snprintf(messagebuf, sizeof(messagebuf), " dy   =%7.2f", (float)algo.get_best_y());
-        DrawString(dst, vi, xmsg, ymsg + 4, messagebuf);
-        snprintf(messagebuf, sizeof(messagebuf), " match=%7.2f", algo.get_best_match());
-        DrawString(dst, vi, xmsg, ymsg + 5, messagebuf);
-        */
-    }
-
-    if (logfile != NULL) {
-        fprintf(logfile, " %6d %7.2f %7.2f %7.5f\n", ndest, (float)algo.get_best_x(), 
-            (float)algo.get_best_y(), algo.get_best_match());
-    }
-
-    return dst;
-}
-#endif
 
 template<typename T>
 T clamp(T n, T min, T max)
@@ -539,14 +401,14 @@ PVideoFrame __stdcall PerfPan_impl::GetFrame(int ndest, IScriptEnvironment* env)
     PVideoFrame reference = perforation->GetFrame(reference_frame, env);
 
     algo algo(reference->GetReadPtr(), current->GetReadPtr(), reference->GetPitch(),
-        reference->GetRowSize(), reference->GetHeight(), blank_threshold, debug, env);
+        reference->GetRowSize(), reference->GetHeight(), blank_threshold, max_search, ndest, plot_scores, env);
     algo.calculate_shifts();
 
     int xpan = algo.get_best_x();
     int ypan = algo.get_best_y();
 
     if (logfile != NULL) {
-        fprintf(logfile, " %6d %d %d %7.5f\n", ndest, xpan, ypan, algo.get_best_match());
+        fprintf(logfile, " %6d %4d %4d %7.5f\n", ndest, xpan, ypan, algo.get_best_match());
     }
 
     bool force_color_as_yuv = false;
