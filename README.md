@@ -27,7 +27,13 @@ Make the clip black-and-white using Levels plugin. Select threshold that will le
 film area black - the less white you have in the frame, the better and faster the plugin works. In the example below I've selected 150/151 as 
 a threshold for black and white.
 
-![Prepared perforation clip](https://github.com/arnean/PerfPan/blob/master/images/perforation.png)
+This is good reference frame:
+
+![Prepared perforation clip](https://github.com/arnean/PerfPan/blob/master/images/goodreference.png)
+
+This one is bad - there is white noise in the film area:
+
+![Prepared perforation clip](https://github.com/arnean/PerfPan/blob/master/images/badreference.png)
 
 Finally turn the clip into Y8 format - this is the required format for the perforation clip.
 
@@ -61,11 +67,11 @@ Useful for debugging.
 * **plot_scores** - this is something that I used to debug the scoring and searching algorithms. See below for explanation.
 
 ```
-source_clip.PerfPan(perforation=stabsource2,blank_threshold=0.01,reference_frame=461,
+source_clip.PerfPan(perforation=stabsource2,blank_threshold=0.01,reference_frame=461,\
 max_search=10,log="perfpan.log",plot_scores=false)
 ```
 
-##How it works##
+## How it works
 
 There are three parts:
 
@@ -73,7 +79,7 @@ There are three parts:
 * searching alorithm for finding the highest score by shifting the current frame relative to reference frame
 * code for doing the actual panning of the original frame
 
-###Scoring algorithm###
+### Scoring algorithm
 
 My initial idea was to just XOR the frames and count the number of white pixels (white pixels on the XOR-ed image are the ones that
 are different on frames) and use this number as a negative score (lower is better). 
@@ -94,3 +100,16 @@ In order to study how the scoring algorithm works you can plot out the scores. S
 Bright yellow is the best score. X and Y coordinates of the brightest yellow pixel determine the amount of panning needed to achieve best match with the 
 reference frame. Fortunately the scoring algorithm was quite good (at least for this single clip that I've used so far) and is almost monotonically growing - i.e. there is just one peak in this "map". This means that I can use simple gradiant search that is quite efficient. In practice I found out that there is usually small "plateau" were score values are slightly fluctuating and I had to modify the search algorithm to accomodate this.
 
+### Search algorithm
+
+It is quite simple. It will start with frames (current and referene frame) aligned with each other and calculate the score. Then it will shift the current frame around by one pixel and calculate score for each of those eight positions. Then it will pick the position with highest score as a next center and will repeat this process. If you imagine the scores as a 3D surface where the score at panning position X and Y will determine the height then this algorithm will move "uphill" until it reaches the top. 
+
+This works for most frames but I had a problem with some noisy frames where the "top of the hill" was wide and flat and with some bumps. Now if the algorithm reaches the top - i.e. the scores of the immediately surrounding positions are lower it will look further - it will calculate the scores for the positions 
+that are two pixels away. If it still doesn't find better match it will look three pixels away, etc. The **max_search** parameter determines how far it will look.
+It is like a local limited exhaustive search when gradient search doesn't give any results. Values like 20 make it already very slow.
+
+If **max_search** is not -1 and **plot_scores** is true then another frame specific files is created instead - frame%d.txt - this will contain the trace of the execution of the search algorithm. How it selected new, better positions and when it increased the search radius. This is useful for debugging the filter.
+
+### Panning algorithm
+
+I took the Avisynth core AddBoders filter and modified it to do panning - i.e. on one side it will add borders but on the other side it will crop to keep the image size. It will work with all image formats and should be quite effective.
