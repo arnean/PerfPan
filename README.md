@@ -14,7 +14,7 @@ panning to correct the scanning defects. You can later use some other deshaker i
 
 You need to overscan the film to capture the sprocket holes. Just a partial image of the sprocket hole is sufficient.
 
-
+![Sufficient overscan](https://github.com/arnean/PerfPan/images/overscan.jpg)
 
 In addition to the original clip that will be stabilized, PerfPan needs a specially prepared clip that is used 
 for aligning the perforation. 
