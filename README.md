@@ -76,7 +76,7 @@ max_search=10,log="perfpan.log",plot_scores=false)
 [Here is a small clip](https://home.cyber.ee/arne/perfpan-demo.mp4) that shows the results of the stabilization of the perforation clip itself. 
 On the left side is frame on top of reference frame. On the right side is panned frame on top of reference frame.
 
-[Here is a longer clip](https://home.cyber.ee/arne/perfpan-scan.mp4) that shows uncropped result of the stabilization. It is interesting to not that 
+[Here is a longer clip](https://home.cyber.ee/arne/perfpan-scan.mp4) that shows uncropped result of the stabilization. It is interesting to note that 
 while sprocket holes are quite stable the frames themselves tend to move relative to sprocket holes little bit. Notice how big are shifts in some areas
 of the clip.
 
