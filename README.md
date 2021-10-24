@@ -62,7 +62,7 @@ Plugin has some parameters that need to be set:
 each other their intersection becomes smaller. It is possible that one of the frames will be completely white or black - in this case it is not 
 possible to compare the frames with each other because one of the frames does not have any features left. This parameter determines the minimum 
 number of differently colored pixels that are needed for comparison. It must be between 0 and 1. Default is 1%.
-* **reference_frame** - number of the reference fram in the perforation clip. First frame of the clip will be used if not set.
+* **reference_frame** - number of the reference frame in the perforation clip. First frame of the clip will be used if not set.
 * **max_search** - this parameters determines how widely the algorithm looks for the best match. If set to -1 PefPan performs exhausitve search, which is very, very slow. This is only needed for debugging the filter. See below for detailed explanation what this parameter does.
 * **log** - name of the logfile. If set PerfPan will write a file with frame numbers, x and y shifts and best score of the frame. 
 Useful for debugging.
