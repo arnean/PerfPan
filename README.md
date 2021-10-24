@@ -3,7 +3,7 @@ PerfPan is an Avisynth plugin to stabilize scanned film using perforation as a r
 
 It't goal is to remove the bouncing of the frames that is caused by the damaged sprocket holes 
 of the film or by the scanning machines that do not have a good film transport. PerfPan will stabilize the film **globally** - all frames will be aligned with the single reference frame. This is very different from other stabilizers that will stabilize locally, relative to surrounding frames. Globally stabilized clip can be
-cropped with minimal waste - you will retain maximum image area with exposing borders in any frames.
+cropped with minimal waste - you will retain maximum image area without exposing borders in any frames.
 
 Perfect input to PerfPan is a sequence of images scanned using Wolverine/Hawkeye scanner. 
 
