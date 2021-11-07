@@ -20,6 +20,7 @@
 #include "avisynth.h"
 #include "stdio.h"
 #include <mutex>
+#include <unordered_map>
 
 //****************************************************************************
 class PerfPan_impl : public GenericVideoFilter {
@@ -30,12 +31,15 @@ class PerfPan_impl : public GenericVideoFilter {
 	bool plot_scores;
 	const char *logfilename;
 	PClip perforation;
+	const char* hintfilename;
 
 	FILE *logfile;
+	std::unordered_map<int, int> xhint;
+	std::unordered_map<int, int> yhint;
 
 public:
 	PerfPan_impl(PClip _child, PClip _perforation, float _blank_threshold, int _reference_frame, int _max_search, 
-		const char* _logfilename, bool _plot_scores, IScriptEnvironment* env);
+		const char* _logfilename, bool _plot_scores, const char* hintfilename, IScriptEnvironment* env);
 	~PerfPan_impl();
 
 	PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env);

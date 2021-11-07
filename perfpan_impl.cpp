@@ -24,6 +24,9 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <unordered_map>
+#include <iostream>
+#include <fstream>
+#include <string>
 
 #include "perfpan_impl.h"
 
@@ -249,11 +252,11 @@ void algo::calculate_shifts_gradient() {
     } while (run);
 }
 
-PerfPan_impl::PerfPan_impl(PClip _child, PClip _perforation, float _blank_threshold, int _reference_frame, int _max_search, 
-    const char* _logfilename, bool _plot_scores, IScriptEnvironment* env) :
-    GenericVideoFilter(_child), perforation(_perforation), blank_threshold(_blank_threshold), 
+PerfPan_impl::PerfPan_impl(PClip _child, PClip _perforation, float _blank_threshold, int _reference_frame, int _max_search,
+    const char* _logfilename, bool _plot_scores, const char* _hintfilename, IScriptEnvironment* env) :
+    GenericVideoFilter(_child), perforation(_perforation), blank_threshold(_blank_threshold),
     reference_frame(_reference_frame), logfilename(_logfilename), max_search(_max_search),
-    plot_scores(_plot_scores)
+    plot_scores(_plot_scores), hintfilename(_hintfilename)
 {
     has_at_least_v8 = true;
     try { env->CheckVersion(8); }
@@ -267,6 +270,24 @@ PerfPan_impl::PerfPan_impl(PClip _child, PClip _perforation, float _blank_thresh
     if (lstrlen(logfilename) > 0) {
         logfile = fopen(logfilename, "wt");
         if (logfile == NULL)    env->ThrowError("PerfPan: log file can not be created");
+    }
+
+    if (lstrlen(hintfilename) > 0) {
+        std::ifstream infile(hintfilename);
+
+        if (!infile.is_open()) {
+            env->ThrowError("PerfPan: hint file can not be opened");
+        }
+
+        int frame;
+        int x;
+        int y;
+        float match;
+
+        while (infile >> frame >> x >> y >> match) {
+            xhint[frame] = x;
+            yhint[frame] = y;
+        }
     }
 }
 
@@ -400,15 +421,24 @@ PVideoFrame __stdcall PerfPan_impl::GetFrame(int ndest, IScriptEnvironment* env)
     PVideoFrame current = perforation->GetFrame(ndest, env);
     PVideoFrame reference = perforation->GetFrame(reference_frame, env);
 
-    algo algo(reference->GetReadPtr(), current->GetReadPtr(), reference->GetPitch(),
-        reference->GetRowSize(), reference->GetHeight(), blank_threshold, max_search, ndest, plot_scores, env);
-    algo.calculate_shifts();
+    int xpan;
+    int ypan;
 
-    int xpan = algo.get_best_x();
-    int ypan = algo.get_best_y();
+    if (xhint.find(ndest) == xhint.end() || yhint.find(ndest) == yhint.end()) {
+        algo algo(reference->GetReadPtr(), current->GetReadPtr(), reference->GetPitch(),
+            reference->GetRowSize(), reference->GetHeight(), blank_threshold, max_search, ndest, plot_scores, env);
+        algo.calculate_shifts();
 
-    if (logfile != NULL) {
-        fprintf(logfile, " %6d %4d %4d %7.5f\n", ndest, xpan, ypan, algo.get_best_match());
+        xpan = algo.get_best_x();
+        ypan = algo.get_best_y();
+
+        if (logfile != NULL) {
+            fprintf(logfile, " %6d %4d %4d %7.5f\n", ndest, xpan, ypan, algo.get_best_match());
+        }
+    }
+    else {
+        xpan = xhint[ndest];
+        ypan = yhint[ndest];
     }
 
     bool force_color_as_yuv = false;

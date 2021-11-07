@@ -29,6 +29,7 @@ AVSValue __cdecl Create_PerfPan(AVSValue args, void* user_data, IScriptEnvironme
     args[4].AsInt(3),//  parameter - max_search.
     args[5].AsString(""),	//  parameter - log.
     args[6].AsBool(false),	//  parameter - plot_scores.
+    args[7].AsString(""),  // parameter - hintfile
     env);
 }
 
@@ -49,7 +50,7 @@ AvisynthPluginInit3(IScriptEnvironment* env, const AVS_Linkage* const vectors) {
   // Save the server pointers.
   AVS_linkage = vectors;
 
-  env->AddFunction("PerfPan", "c[perforation]c[blank_threshold]f[reference_frame]i[max_search]i[log]s[plot_scores]b", Create_PerfPan, 0);
+  env->AddFunction("PerfPan", "c[perforation]c[blank_threshold]f[reference_frame]i[max_search]i[log]s[plot_scores]b[hintfile]s", Create_PerfPan, 0);
 
   return "`PerfPan' PerfPan plugin";
 }
