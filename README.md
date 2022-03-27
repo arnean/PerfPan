@@ -80,6 +80,70 @@ On the left side is frame on top of reference frame. On the right side is panned
 while sprocket holes are quite stable the frames themselves tend to move relative to sprocket holes little bit. Notice how big are shifts in some areas
 of the clip.
 
+## Scanning workflow
+
+I will go through my scanning workflow step by step and show all the tricks.
+
+### Scan
+
+Use the frame by frame scanning machine like Wolverine with Hawkeye kit to scan your film frame by frame.
+
+TODO: add scanning video.
+
+The result of this step is a directory full of sequentially named images (e.g. `scan00001.jpg`, `scan00002.jpg` etc.). My scripts assume master directory (e.g. `scans`), project directory under it (e.g. `trip1970`) and image directory `img` under it. 
+
+Don't worry if there are bad images e.g. beacuse the film got jammed in the scanner or damaged frames or something like this. Those will be deleted on the next step.
+
+### Select images for converting
+
+Select images that you want to convert. Delete bad frames (e.g. sometimes machine gets stuck and there are repeated frames, sometimes there are blank frames, frames where film is spliced, scenes that you just want to remove etc.). I usually scan full roll that contains different clips from different times and split it into individual parts at this step.
+
+You can use Windows Explorer with image preview or some special software. I like [FastStone Image Viewer](https://www.faststone.org/).
+
+### Renumber images
+
+When you delete some frames there will be holes in the image sequence. Some Avisynth input filters can skip those missing frames, but the standard `ImageReader` doesn't. I found it easier to renumber the remaining images. This is the Shell script that I'm using:
+
+```
+TODO: insert script
+```
+
+I run it under Ubuntu that I installed from Microsoft Store. So you have fully functioning Linux inside your Windows. Of course you can use some other input filter that can skip the missing frames or renumber the files some other way -- this is just the script that I'm using.
+
+### Create perforation script
+
+You will need to select parameters for the perforation script that will be basis for the image stabilization. Use the following Avisynth script to do it:
+
+```
+TODO: add script
+```
+
+You must select parameters for cropping so that the rounded corner of the perforation hole is more or less in the middle of the image. Select the value for the black and white threshold `TODO:name` so that frames are mostly black, perforation hole is white and the border of the edges of the perforation hole are nice and sharp. Finally select the reference frame -- all images will be aligned with this frame.
+
+### Check the stabilization parameters
+
+Open this script in Virtualdub:
+
+```
+TODO: add script
+```
+
+Browse through the resultng video (I use alt-arrows in Virtualdub to jump 50 frames forward and backwards). Make sure that the PerfPan seems to find the perforation holes and stabilize the video. It's okey if some frames are not perfectly stabilized -- we will deal with those later. It's just important that there are not too many frames where PerfPan did a bad job. You can try to play with PerfPan parameters and/or perforation clip parameters to try to fix it.
+
+### Create the hintfile for stabilization
+
+Now you must create a hintfile for stabilization. In principle you can skip this (and following) step and just stabilize the video. But hintfile allows you to fix any errors where PerfPan didn't manages to stabilize the frame. I always use it to verify the quality of the stabilization.
+
+Reopen the script and play it from the beginning (press spacebar in Virtualdub). PerfPan will create a logfile in the directory where the script is located. After Virtualdub finishes playing close the video -- this will close the logfile and then rename it to `hints.txt`.
+
+Next create a Gnuplot file `hints.plt` in the script directory with following contents:
+
+```
+TODO: plt file
+```
+
+Install Gnuplot and then double click on the plt file. Gnuplot will open window that shows all the calculated X and Y offsets and also marks the frames that were shifted too far.
+
 ## How it works
 
 There are three parts:
