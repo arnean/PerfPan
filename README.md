@@ -96,13 +96,13 @@ Don't worry if there are bad images e.g. beacuse the film got jammed in the scan
 
 ### Select images for converting
 
-Select images that you want to convert. Delete bad frames (e.g. sometimes machine gets stuck and there are repeated frames, sometimes there are blank frames, frames where film is spliced, scenes that you just want to remove etc.). I usually scan full roll that contains different clips from different times and split it into individual parts at this step.
+Select images that you want to convert. Delete bad frames (e.g. sometimes machine gets stuck and there are repeated frames, sometimes there are blank frames, frames where film was spliced, scenes that you just want to remove etc.). I usually scan full roll that contains different clips from different times and split it into individual parts at this step.
 
 You can use Windows Explorer with image preview or some special software. I like [FastStone Image Viewer](https://www.faststone.org/).
 
 ### Renumber images
 
-When you delete some frames there will be holes in the image sequence. Some Avisynth input filters can skip those missing frames, but the standard `ImageReader` doesn't. I found it easier to renumber the remaining images. This is the Shell script that I'm using:
+When you delete some frames there will be holes in the image sequence. Some Avisynth input filters can skip those missing frames, but the standard `ImageReader` doesn't. I found it easier to renumber the remaining images. This is the shell script that I'm using:
 
 ```
 TODO: insert script
@@ -128,7 +128,7 @@ Open this script in Virtualdub:
 TODO: add script
 ```
 
-Browse through the resultng video (I use alt-arrows in Virtualdub to jump 50 frames forward and backwards). Make sure that the PerfPan seems to find the perforation holes and stabilize the video. It's okey if some frames are not perfectly stabilized -- we will deal with those later. It's just important that there are not too many frames where PerfPan did a bad job. You can try to play with PerfPan parameters and/or perforation clip parameters to try to fix it.
+Browse through the resultng video (I use alt-cursor keys in Virtualdub to jump 50 frames forward and backwards). Make sure that the PerfPan seems to find the perforation holes and stabilize the video. It's okey if some frames are not perfectly stabilized -- we will deal with those later. It's just important that there are not too many frames where PerfPan did a bad job. You can try to play with PerfPan parameters and/or perforation clip parameters to try to fix it.
 
 ### Create the hintfile for stabilization
 
@@ -136,13 +136,47 @@ Now you must create a hintfile for stabilization. In principle you can skip this
 
 Reopen the script and play it from the beginning (press spacebar in Virtualdub). PerfPan will create a logfile in the directory where the script is located. After Virtualdub finishes playing close the video -- this will close the logfile and then rename it to `hints.txt`.
 
+Now edit the Avisynth script that you just used and set the name of the hintfile variable:
+
+```
+hintfile="hints.txt"
+```
+
+Reopen the script in Virtualdub.
+
 Next create a Gnuplot file `hints.plt` in the script directory with following contents:
 
 ```
 TODO: plt file
 ```
 
-Install Gnuplot and then double click on the plt file. Gnuplot will open window that shows all the calculated X and Y offsets and also marks the frames that were shifted too far.
+Install Gnuplot and then double click on the plt file. Gnuplot will open window that shows all the calculated X and Y offsets and also marks the frames that were shifted too far. You can zoom in using mouse - right-click the corners of the part you want to zoom. Use cursor keys to scroll the graph. You are looking for frames where red and blue dots are far away from neighbouring dots. It is possible that PerfPan made a mistake there. Go to Virtualdub and jump to the area where the problematic frame was located. Scroll back and forward and make sure that all frames are nicely stabilized. If you find a frame that is not correctly panned you can fix it by editing the `hints.txt` file. Find the line that corresponds to the problematic frame. Second and third columns represent the X and Y shifts -- edit them, save the hintfile and reload the script in Virtaldub. Repeat it until frame is properly aligned. 
+
+TODO: add image of the plot.
+
+It can be quite time-consuming, but improves the quality of the final clip. 
+
+Also check the frames where green dots are not on horizontal axis. Those are the frames where PerfPan shifted the frame as far as it could, but perhaps it was not enough. Also check out the `copy_on_limit` option for the PerfPan filter -- it will copy the shift values from previous frame when the shift limit is reached.
+
+After reviewing all the problematic frames save the hintfile.
+
+### Crop the stabilized video
+
+Open this script in Virtualdub:
+
+```
+TODO: add script
+```
+
+Change the parameters of the last crop command to remove all the borders. 
+
+You can add additional processing at the end of this script.
+
+### Save the video
+
+Save the codec and container format and save the script into video file.
+
+All done.
 
 ## How it works
 
