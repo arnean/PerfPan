@@ -64,13 +64,14 @@ possible to compare the frames with each other because one of the frames does no
 number of differently colored pixels that are needed for comparison. It must be between 0 and 1. Default is 1%.
 * **reference_frame** - number of the reference frame in the perforation clip. First frame of the clip will be used if not set.
 * **max_search** - this parameters determines how widely the algorithm looks for the best match. If set to -1 PefPan performs exhausitve search, which is very, very slow. This is only needed for debugging the filter. See below for detailed explanation what this parameter does.
-* **log** - name of the logfile. If set PerfPan will write a file with frame numbers, x and y shifts and best score of the frame. 
-Useful for debugging.
+* **log** - name of the logfile. If set PerfPan will write a file with frame numbers, x and y shift, best score of the frame and clipping information. Useful for debugging. Logfile has same format as hintfile. Run the script and copy the logfile to hintfile for very fast action and possibility to correct errors.
 * **plot_scores** - this is something that I used to debug the scoring and searching algorithms. See below for explanation.
+* **hintfile** - file with X and Y offsets for frames. PerfPan will read this file on initialization. If there is hint for the frame the algorithm is not run instead the values from hintfile are used. In principle you can specify offsets for all frames and use PerfPan just for shifting the frames. You do not need to add offsets for all frames. If there is just one frame you want to shift manually add one line to hintfile. Hintfile has same format as logfile. You can run the script once for all frames, close the script, copy the logfile to hintfile, reopen the script and then tweak the individual frames where PerfPan did not find correct offsets.
+* **copy_on_limit** - if PerfPan shifts the frame to the limit (which is quarter of the frame height and width) then it is possible that the perforation was not readable (i.e. it was all white) and PerfPan shifted the frame way too far. If this option is set to true, PerfPan will use the offsets from previous frame instead. This will avoid jumping of the frames. See the description of scanning workflow for options.
 
 ```
 source_clip.PerfPan(perforation=stabsource2,blank_threshold=0.01,reference_frame=461,\
-max_search=10,log="perfpan.log",plot_scores=false)
+max_search=10,log="perfpan.log",plot_scores=false,hintfile="",copy_on_limit=false)
 ```
 
 [Here is a small clip](https://home.cyber.ee/arne/perfpan-demo.mp4) that shows the results of the stabilization of the perforation clip itself. 
@@ -105,7 +106,13 @@ You can use Windows Explorer with image preview or some special software. I like
 When you delete some frames there will be holes in the image sequence. Some Avisynth input filters can skip those missing frames, but the standard `ImageReader` doesn't. I found it easier to renumber the remaining images. This is the shell script that I'm using:
 
 ```
-TODO: insert script
+c=1
+for n in `ls | sed -e 's/scan//;s/\.jpg//; s/^[0]*//' | sort -n`; do
+        old=`printf "%04d" $n`
+        new=`printf "%06d" $c`
+        mv scan$old.jpg n_scan$new.jpg
+        c=$(($c+1))
+done
 ```
 
 I run it under Ubuntu that I installed from Microsoft Store. So you have fully functioning Linux inside your Windows. Of course you can use some other input filter that can skip the missing frames or renumber the files some other way -- this is just the script that I'm using.
@@ -115,17 +122,48 @@ I run it under Ubuntu that I installed from Microsoft Store. So you have fully f
 You will need to select parameters for the perforation script that will be basis for the image stabilization. Use the following Avisynth script to do it:
 
 ```
-TODO: add script
+SetMemoryMax(1000) 
+LoadPlugin("../PerfPan.dll")
+
+first_frame=1
+last_frame=1234
+fps=16
+level=220
+
+source0=ImageReader("img\n_scan%06d.jpg", start=first_frame, end=last_frame, fps=fps)
+perfcorner=source0.ConvertToYV12().Greyscale().Crop(0,40,180,300).ConvertToY8().coloryuv(autogain=true).Levels(level,1,level+1,0,255,false)
+perfcorner
 ```
 
-You must select parameters for cropping so that the rounded corner of the perforation hole is more or less in the middle of the image. Select the value for the black and white threshold `TODO:name` so that frames are mostly black, perforation hole is white and the border of the edges of the perforation hole are nice and sharp. Finally select the reference frame -- all images will be aligned with this frame.
+You must select parameters for cropping so that the rounded corner of the perforation hole is more or less in the middle of the image. Select the value for the black and white threshold `level` so that frames are mostly black, perforation hole is white and the border of the edges of the perforation hole are nice and sharp. Finally select the reference frame -- all images will be aligned with this frame.
 
 ### Check the stabilization parameters
 
 Open this script in Virtualdub:
 
 ```
-TODO: add script
+SetMemoryMax(1000) 
+LoadPlugin("../PerfPan.dll")
+
+first_frame=1
+last_frame=1234
+fps=16
+reference_frame=234
+level=220
+hintfile=""
+#hintfile="hints.txt"
+
+source0=ImageReader("img\n_scan%06d.jpg", start=first_frame, end=last_frame, fps=fps)
+
+perfcorner=source0.ConvertToYV12().Greyscale().Crop(0,40,180,300).ConvertToY8().coloryuv(autogain=true).Levels(level,1,level+1,0,255,false)
+
+stabsource=perfcorner.ConvertToRGB()
+
+stabbed=stabsource.PerfPan(perforation=perfcorner,blank_threshold=0.01,reference_frame=reference_frame,max_search=10,log="s.log",plot_scores=false,hintfile=hintfile,copy_on_limit=true)
+
+ref=stabsource.FreezeFrame(0,last_frame,reference_frame)
+
+stackhorizontal(Subtract(stabsource,ref), Subtract(stabbed, ref))
 ```
 
 Browse through the resultng video (I use alt-cursor keys in Virtualdub to jump 50 frames forward and backwards). Make sure that the PerfPan seems to find the perforation holes and stabilize the video. It's okey if some frames are not perfectly stabilized -- we will deal with those later. It's just important that there are not too many frames where PerfPan did a bad job. You can try to play with PerfPan parameters and/or perforation clip parameters to try to fix it.
@@ -147,7 +185,9 @@ Reopen the script in Virtualdub.
 Next create a Gnuplot file `hints.plt` in the script directory with following contents:
 
 ```
-TODO: plt file
+set grid
+
+plot 'hints.txt' using 1:2 with points lt rgb "blue" lw 1 pt 6, 'hints.txt' using 1:3 with points lt rgb "red" lw 1 pt 6, 'hints.txt' using 1:5 with points lt rgb "green" lw 1 pt 6
 ```
 
 Install Gnuplot and then double click on the plt file. Gnuplot will open window that shows all the calculated X and Y offsets and also marks the frames that were shifted too far. You can zoom in using mouse - right-click the corners of the part you want to zoom. Use cursor keys to scroll the graph. You are looking for frames where red and blue dots are far away from neighbouring dots. It is possible that PerfPan made a mistake there. Go to Virtualdub and jump to the area where the problematic frame was located. Scroll back and forward and make sure that all frames are nicely stabilized. If you find a frame that is not correctly panned you can fix it by editing the `hints.txt` file. Find the line that corresponds to the problematic frame. Second and third columns represent the X and Y shifts -- edit them, save the hintfile and reload the script in Virtaldub. Repeat it until frame is properly aligned. 
