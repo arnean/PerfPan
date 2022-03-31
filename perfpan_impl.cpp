@@ -64,6 +64,7 @@ public:
     int get_best_x(void) { return best_x; };
     int get_best_y(void) { return best_y; };
     float get_best_match(void) { return best_match; };
+    int get_limit_flags(int x, int y);
 };
 
 algo::algo(const BYTE* _reference, const BYTE* _current, int _pitch, int _rowsize, int _height, 
@@ -93,6 +94,20 @@ algo::~algo() {
     if (plotfile != NULL) {
         fclose(plotfile);
     }
+}
+
+/*
+returns limit flags for log file
+*/
+int algo::get_limit_flags(int x, int y)
+{
+    int res = 0;
+    if (x == min_x + 1) res |= 0x01;
+    if (x == max_x - 1) res |= 0x02;
+    if (y == min_y + 1) res |= 0x04;
+    if (y == max_y - 1) res |= 0x08;
+
+    return(res);
 }
 
 /*
@@ -253,10 +268,10 @@ void algo::calculate_shifts_gradient() {
 }
 
 PerfPan_impl::PerfPan_impl(PClip _child, PClip _perforation, float _blank_threshold, int _reference_frame, int _max_search,
-    const char* _logfilename, bool _plot_scores, const char* _hintfilename, IScriptEnvironment* env) :
+    const char* _logfilename, bool _plot_scores, const char* _hintfilename, bool _copy_on_limit, IScriptEnvironment* env) :
     GenericVideoFilter(_child), perforation(_perforation), blank_threshold(_blank_threshold),
     reference_frame(_reference_frame), logfilename(_logfilename), max_search(_max_search),
-    plot_scores(_plot_scores), hintfilename(_hintfilename)
+    plot_scores(_plot_scores), hintfilename(_hintfilename), copy_on_limit(_copy_on_limit)
 {
     has_at_least_v8 = true;
     try { env->CheckVersion(8); }
@@ -283,8 +298,9 @@ PerfPan_impl::PerfPan_impl(PClip _child, PClip _perforation, float _blank_thresh
         int x;
         int y;
         float match;
+        int limit;
 
-        while (infile >> frame >> x >> y >> match) {
+        while (infile >> frame >> x >> y >> match >> limit) {
             xhint[frame] = x;
             yhint[frame] = y;
         }
@@ -432,8 +448,27 @@ PVideoFrame __stdcall PerfPan_impl::GetFrame(int ndest, IScriptEnvironment* env)
         xpan = algo.get_best_x();
         ypan = algo.get_best_y();
 
+        int limit_flags = algo.get_limit_flags(xpan, ypan);
+
+        /*
+        frame was shifted to its limits. in practice there are two cases when this happens:
+        
+        a) compare window was too small - more panning was really needed. 
+        one should increase the compare window to get good shift automatically
+
+        b) the frame was low quality and then calculated shift is not correct. in practice it's 
+        good strategy to use shift values from last frame. you can enable this with copy_on_limit option
+        */
+        if (limit_flags != 0 && copy_on_limit && xhint.find(ndest-1) != xhint.end() 
+                && yhint.find(ndest-1) != yhint.end()) {
+            xpan = xhint[ndest-1];
+            ypan = yhint[ndest-1];
+        }
+        /* store values so they can used for next frame if needed */
+        xhint[ndest] = xpan;
+        yhint[ndest] = ypan;
         if (logfile != NULL) {
-            fprintf(logfile, " %6d %4d %4d %7.5f\n", ndest, xpan, ypan, algo.get_best_match());
+            fprintf(logfile, " %6d %4d %4d %7.5f %d\n", ndest, xpan, ypan, algo.get_best_match(), limit_flags);
         }
     }
     else {

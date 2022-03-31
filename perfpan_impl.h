@@ -32,6 +32,7 @@ class PerfPan_impl : public GenericVideoFilter {
 	const char *logfilename;
 	PClip perforation;
 	const char* hintfilename;
+	bool copy_on_limit;
 
 	FILE *logfile;
 	std::unordered_map<int, int> xhint;
@@ -39,7 +40,7 @@ class PerfPan_impl : public GenericVideoFilter {
 
 public:
 	PerfPan_impl(PClip _child, PClip _perforation, float _blank_threshold, int _reference_frame, int _max_search, 
-		const char* _logfilename, bool _plot_scores, const char* hintfilename, IScriptEnvironment* env);
+		const char* _logfilename, bool _plot_scores, const char* hintfilename, bool _copy_on_limit, IScriptEnvironment* env);
 	~PerfPan_impl();
 
 	PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env);
