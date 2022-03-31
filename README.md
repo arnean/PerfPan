@@ -166,7 +166,7 @@ ref=stabsource.FreezeFrame(0,last_frame,reference_frame)
 stackhorizontal(Subtract(stabsource,ref), Subtract(stabbed, ref))
 ```
 
-Browse through the resultng video (I use alt-cursor keys in Virtualdub to jump 50 frames forward and backwards). Make sure that the PerfPan seems to find the perforation holes and stabilize the video. It's okey if some frames are not perfectly stabilized -- we will deal with those later. It's just important that there are not too many frames where PerfPan did a bad job. You can try to play with PerfPan parameters and/or perforation clip parameters to try to fix it.
+Browse through the resulting video (I use alt-cursor keys in Virtualdub to jump 50 frames forward and backwards). Make sure that the PerfPan seems to find the perforation holes and stabilize the video. It's okey if some frames are not perfectly stabilized -- we will deal with those later. It's just important that there are not too many frames where PerfPan did a bad job. You can try to play with PerfPan parameters and/or perforation clip parameters to try to fix it.
 
 ### Create the hintfile for stabilization
 
@@ -192,11 +192,15 @@ plot 'hints.txt' using 1:2 with points lt rgb "blue" lw 1 pt 6, 'hints.txt' usin
 
 Install Gnuplot and then double click on the plt file. Gnuplot will open window that shows all the calculated X and Y offsets and also marks the frames that were shifted too far. You can zoom in using mouse - right-click the corners of the part you want to zoom. Use cursor keys to scroll the graph. You are looking for frames where red and blue dots are far away from neighbouring dots. It is possible that PerfPan made a mistake there. Go to Virtualdub and jump to the area where the problematic frame was located. Scroll back and forward and make sure that all frames are nicely stabilized. If you find a frame that is not correctly panned you can fix it by editing the `hints.txt` file. Find the line that corresponds to the problematic frame. Second and third columns represent the X and Y shifts -- edit them, save the hintfile and reload the script in Virtaldub. Repeat it until frame is properly aligned. 
 
-TODO: add image of the plot.
+![Plot of hintfile](https://github.com/arnean/PerfPan/blob/master/images/hintfileplot.jpg)
 
 It can be quite time-consuming, but improves the quality of the final clip. 
 
 Also check the frames where green dots are not on horizontal axis. Those are the frames where PerfPan shifted the frame as far as it could, but perhaps it was not enough. Also check out the `copy_on_limit` option for the PerfPan filter -- it will copy the shift values from previous frame when the shift limit is reached.
+
+Here is the zoomed in part that shows frames where copy_on_limit was in action:
+
+![Plot of hintfile](https://github.com/arnean/PerfPan/blob/master/images/copyonlimit.jpg)
 
 After reviewing all the problematic frames save the hintfile.
 
@@ -205,7 +209,26 @@ After reviewing all the problematic frames save the hintfile.
 Open this script in Virtualdub:
 
 ```
-TODO: add script
+SetMemoryMax(1000) 
+LoadPlugin("../PerfPan.dll")
+
+first_frame=1
+last_frame=1234
+fps=16
+reference_frame=234
+level=220
+#hintfile=""
+hintfile="hints.txt"
+
+source0=ImageReader("img\n_scan%06d.jpg", start=first_frame, end=last_frame, fps=fps)
+
+perfcorner=source0.ConvertToYV12().Greyscale().Crop(0,40,180,300).ConvertToY8().coloryuv(autogain=true).Levels(level,1,level+1,0,255,false)
+
+stabsource=source0.ConvertToRGB()
+
+stabbed=stabsource.PerfPan(perforation=perfcorner,blank_threshold=0.01,reference_frame=reference_frame,max_search=10,log="s.log",plot_scores=false,hintfile=hintfile,copy_on_limit=true)
+
+stabbed.Crop(170,124,1024,786)
 ```
 
 Change the parameters of the last crop command to remove all the borders. 
