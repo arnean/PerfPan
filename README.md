@@ -192,7 +192,7 @@ plot 'hints.txt' using 1:2 with points lt rgb "blue" lw 1 pt 6, 'hints.txt' usin
 
 Install Gnuplot and then double click on the plt file. Gnuplot will open window that shows all the calculated X and Y offsets and also marks the frames that were shifted too far. You can zoom in using mouse - right-click the corners of the part you want to zoom. Use cursor keys to scroll the graph. You are looking for frames where red and blue dots are far away from neighbouring dots. It is possible that PerfPan made a mistake there. Go to Virtualdub and jump to the area where the problematic frame was located. Scroll back and forward and make sure that all frames are nicely stabilized. If you find a frame that is not correctly panned you can fix it by editing the `hints.txt` file. Find the line that corresponds to the problematic frame. Second and third columns represent the X and Y shifts -- edit them, save the hintfile and reload the script in Virtaldub. Repeat it until frame is properly aligned. 
 
-![Plot of hintfile](https://github.com/arnean/PerfPan/blob/master/images/hintfileplot.jpg)
+![Plot of hintfile](https://github.com/arnean/PerfPan/blob/master/images/hintfileplot.png)
 
 It can be quite time-consuming, but improves the quality of the final clip. 
 
@@ -200,7 +200,7 @@ Also check the frames where green dots are not on horizontal axis. Those are the
 
 Here is the zoomed in part that shows frames where copy_on_limit was in action:
 
-![Plot of hintfile](https://github.com/arnean/PerfPan/blob/master/images/copyonlimit.jpg)
+![Plot of hintfile](https://github.com/arnean/PerfPan/blob/master/images/copyonlimit.png)
 
 After reviewing all the problematic frames save the hintfile.
 
