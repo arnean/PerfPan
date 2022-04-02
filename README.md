@@ -284,4 +284,4 @@ If **max_search** is not -1 and **plot_scores** is true then another frame speci
 
 ### Panning algorithm
 
-I took the Avisynth core AddBoders filter and modified it to do panning - i.e. on one side it will add borders but on the other side it will crop to keep the image size. It will work with all image formats and should be quite effective. Just one remark: if the original clip is in YV12 colourspace then it is possible to pan only in steps of two pixels. The plugin will automatically do it, but the result is not as good as with other formats.
+I took the Avisynth core AddBorders filter and modified it to do panning - i.e. on one side it will add borders but on the other side it will crop to keep the image size. It will work with all image formats and should be quite effective. Just one remark: if the original clip is in YV12 colourspace then it is possible to pan only in steps of two pixels. The plugin will automatically do it, but the result is not as good as with other formats.
