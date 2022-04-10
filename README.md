@@ -90,7 +90,7 @@ I will go through my scanning workflow step by step and show all the tricks.
 
 Use the frame by frame scanning machine like Wolverine with Hawkeye kit to scan your film frame by frame.
 
-TODO: add scanning video.
+https://www.youtube.com/watch?v=r2OvUhDGfK8
 
 The result of this step is a directory full of sequentially named images (e.g. `scan00001.jpg`, `scan00002.jpg` etc.). My scripts assume master directory (e.g. `scans`), project directory under it (e.g. `trip1970`) and image directory `img` under it. 
 
