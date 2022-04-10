@@ -88,7 +88,7 @@ I will go through my scanning workflow step by step and show all the tricks.
 
 ### Scan
 
-Use the frame by frame scanning machine like Wolverine with Hawkeye kit to scan your film frame by frame.
+Use the frame by frame scanning machine like Wolverine with Hawkeye kit to scan your film frame by frame. Here is my scanner in action:
 
 https://www.youtube.com/watch?v=r2OvUhDGfK8
 
